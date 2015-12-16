@@ -1,0 +1,46 @@
+/***********************************************File Context Menu***********************************************/
+HKEY_CLASSES_ROOT\*\Shell
+"Key"="RefineFileName"
+"MUIVerb"="Refine File Name"
+"SubCommands"="Refine.fileRename;Refine.fileRenameByForce;Refine.fileUndo;Refine.fileUndoByForce"
+
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell
+"Key"="Refine.fileRename"
+    @="Rename (show)"
+    "Key"="comand"
+    @=""C:\Python27\python.exe" "C:\RenameFiles\rename.series.episode.py" -i "%1""
+"Key"="Refine.fileRenameByForce"
+    @="Rename (forced)"
+    "Key"="comand"
+    @=""C:\Python27\pythonw.exe" "C:\RenameFiles\rename.series.episode.py" -F -i "%1""
+"Key"="Refine.fileUndo"
+    @="Undo (show)"
+    "Key"="comand"
+    @=""C:\Python27\python.exe" "C:\RenameFiles\rename.series.episode.py" -U -i "%1""
+"Key"="Refine.fileUndoByForce"
+    @="Undo (forced)"
+    "Key"="comand"
+    @=""C:\Python27\pythonw.exe" "C:\RenameFiles\rename.series.episode.py" -U -F -i "%1""
+
+/******************************************Directory Context Menu***********************************************/
+HKEY_CLASSES_ROOT\Directory\shell
+"MUIVerb"="Refine File Names"
+"SubCommands"="Refine.directoryRename;Refine.directoryRenameByForce;Refine.directoryRenameRecursively;Refine.directoryRenameRecursivelyByForce"
+
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell
+"Key"="Refine.directoryRename"
+    @="Rename MKV files (show)"
+    "Key"="comand"
+    @=""C:\Python27\python.exe" "C:\RenameFiles\rename.series.episode.py" -d "%1""
+"Key"="Refine.directoryRenameByForce"
+    @="Rename MKV files (forced)"
+    "Key"="comand"
+    @=""C:\Python27\pythonw.exe" "C:\RenameFiles\rename.series.episode.py" -F -d "%1""
+"Key"="Refine.directoryRenameRecursively"
+    @="Rename Recursively MKV files (show)"
+    "Key"="comand"
+    @=""C:\Python27\pythonw.exe" "C:\RenameFiles\rename.series.episode.py" -RF -d "%1""
+"Key"="Refine.directoryRenameRecursivelyByForce"
+    @="Rename Recursively MKV files (forced)"
+    "Key"="comand"
+    @=""C:\Python27\python.exe" "C:\RenameFiles\rename.series.episode.py" -R -d "%1""
