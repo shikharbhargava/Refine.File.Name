@@ -1,4 +1,4 @@
-import re, os, sys, getopt, datetime
+import re, os, sys, getopt, datetime, random
 
 compressionList = ['x264', 'x265']
 postFixList = ['480p', '720p', '1080p', 'x264', 'x265', 'HDTV', 'HEVC']
@@ -14,16 +14,92 @@ def RunAsAdmin(forced):
     else:
         python_exe = sys.exec_prefix + '\\pythonw.exe'
     params = " ".join(['"%s"' % (x,) for x in sys.argv])
-    #print python_exe
-    #print params
     showCmd = win32con.SW_SHOWNORMAL
-    #showCmd = win32con.SW_HIDE
     lpVerb = 'runas'  # causes UAC elevation prompt.
     procInfo = ShellExecuteEx(nShow=showCmd,
                               fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
                               lpVerb=lpVerb,
                               lpFile=python_exe,
                               lpParameters=params)
+
+def addNewFileToUndoFile(oldName, newName):
+    line = ''
+    line = '"' + newName + '";"' + oldName + '"\n'
+    print line
+    renameUndoFile = undoFile + str(random.randint(1, 1000))
+    while True:
+        try:
+            os.rename(undoFile, renameUndoFile)
+            with open(renameUndoFile, 'r+b') as f:
+                content = f.read()
+                f.seek(0, 0)
+                f.write(line.rstrip('\r\n') + '\n' + content)
+            os.rename(renameUndoFile, undoFile)
+            break
+        except OSError:
+            continue
+        except IOError:
+            continue
+
+def writeLinesToUndoFile(lines):
+    renameUndoFile = undoFile + str(random.randint(1, 1000))
+    while True:
+        try:
+            os.rename(undoFile, renameUndoFile)
+            with open(renameUndoFile, 'wb') as f:
+                for line in lines:
+                    f.write(line)
+            os.rename(renameUndoFile, undoFile)
+            break
+        except OSError:
+            continue
+        except IOError:
+            continue
+
+def findFileInUndoFile(file):
+    renameUndoFile = undoFile + str(random.randint(1, 1000))
+    lineFound = ''
+    while True:
+        try:
+            os.rename(undoFile, renameUndoFile)
+            with open(renameUndoFile, "r") as ins:
+                for line in ins:
+                    line = ' '.join(line.split())
+                    replacement = line.strip('\n').split(';', 1)
+                    if (replacement[0].strip('"') == file):
+                        lineFound = line
+                        break
+            os.rename(renameUndoFile, undoFile)
+            break
+        except OSError:
+            continue
+        except IOError:
+            continue
+    return lineFound
+
+def removeLineFromUndoFile(line):
+    print 'removeLineFromUndoFile', line
+    lines = []
+    renameUndoFile = undoFile + str(random.randint(1, 1000))
+    while True:
+        try:
+            os.rename(undoFile, renameUndoFile)
+            with open(renameUndoFile, "r") as ins:
+                for oldline in ins:
+                    print 'read:', oldline
+                    oldline = ' '.join(oldline.split())
+                    if (oldline != line):
+                        lines.append(oldline)
+            with open(renameUndoFile, "wb") as f:
+                for wline in lines:
+                    print 'write:', wline
+                    f.write(wline + '\n')
+            os.rename(renameUndoFile, undoFile)
+            break
+        except OSError:
+            continue
+        except IOError:
+            continue
 
 def undoFileName(inputDirectory, inputFile, extension, forced):
     newFile = inputFile
@@ -33,20 +109,16 @@ def undoFileName(inputDirectory, inputFile, extension, forced):
     testVar = 'Y'
     title, ext = os.path.splitext(os.path.basename(inputFile))
     inputFile = inputDirectory + "\\" + title + ext
-    #print inputFile
     if not os.path.isfile(undoFile):
         print "Invalid Undo File: " + undoFile + "!"
         sys.exit()
-    with open(undoFile, "r") as ins:
-        for line in ins:
-            line = ' '.join(line.split())
-            replacement = line.strip('\n').split(';', 1)
-            if (replacement[0].strip('"') == inputFile) and not undoDone:
-                undoDone = True
-                newFile = replacement[1].strip('"')
-            else:
-                line += '\n'
-                lines.append(line)
+    line = findFileInUndoFile(inputFile)
+    if line == '':
+        return
+
+    line = ' '.join(line.split())
+    newFile = (line.strip('\n').split(';', 1))[1].strip('"')
+
     if not forced:
         testVar = raw_input("Renaming: \n\"" + inputFile
                             + "\" to \n\"" + newFile
@@ -55,13 +127,12 @@ def undoFileName(inputDirectory, inputFile, extension, forced):
     if testVar != 'n' and testVar != 'no' and inputFile != newFile:
         try:
             os.rename(inputFile, newFile)
-        except OSError:
-            RunAsAdmin(forced)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                RunAsAdmin(forced)
             sys.exit()
         else:
-            with open(undoFile, 'w') as outfile:
-                for line in lines:
-                    outfile.write(line)
+            removeLineFromUndoFile(line)
 
 def undo(inputFile, inputDirectory, extension, forced):
     if not os.path.isdir(inputFile):
@@ -77,19 +148,6 @@ def undo(inputFile, inputDirectory, extension, forced):
     else:
         sys.exit()
         
-
-def writeUndoFile(oldName, newName):
-    lines = []
-    line = ''
-    line = '"' + newName + '";"' + oldName + '"\n'
-    lines.append(line)
-    #print undoFile
-    with open(undoFile) as infile:
-        for line in infile:
-            lines.append(line)
-    with open(undoFile, 'w') as outfile:
-        for line in lines:
-            outfile.write(line)
 
 def renameFile(inputDirectory, inputFile, extension, forced):
     newFile = ""
@@ -143,7 +201,6 @@ def renameFile(inputDirectory, inputFile, extension, forced):
                     newFileList.append(term)
                     continue
                 found = True
-                #print 'episodeNum:', episodeNum
                 newFileList.append("S0" + episodeNum[1][0] + "E" + episodeNum[1][1] + episodeNum[1][2])
                 continue
             if found:
@@ -183,14 +240,14 @@ def renameFile(inputDirectory, inputFile, extension, forced):
                                 + "\".\n[Y(default)|N]")
             testVar = testVar.lower()
         if testVar != 'n' and testVar != 'no' and inputFile != newFile:
-            #os.rename(inputFile, newFile)
             try:
                 os.rename(inputFile, newFile)
-            except OSError:
-                RunAsAdmin(forced)
+            except OSError as exc:
+                if exc.errno != errno.EEXIST:
+                    RunAsAdmin(forced)
                 sys.exit()
             else:
-                writeUndoFile(inputFile, newFile)
+                addNewFileToUndoFile(inputFile, newFile)
 
 def rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced):
     if isInputFile:
