@@ -128,7 +128,6 @@ def findFileInUndoFile(file):
             continue
         except IOError:
             break
-    print renameUndoFile
 
     while True:
         try:
@@ -136,7 +135,6 @@ def findFileInUndoFile(file):
             break
         except OSError:
             continue
-    print undoFile
     return lineFound
 
 def removeLineFromUndoFile(line):
@@ -159,7 +157,6 @@ def removeLineFromUndoFile(line):
             continue
         except IOError:
             break
-    print renameUndoFile
 
     while True:
         try:
@@ -167,7 +164,6 @@ def removeLineFromUndoFile(line):
             break
         except OSError:
             continue
-    print undoFile
 
 def undoFileName(inputDirectory, inputFile, extension, forced):
     newFile = inputFile
