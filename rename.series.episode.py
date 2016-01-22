@@ -1,9 +1,49 @@
+from __future__ import division
+from time import sleep
 import re, os, sys, getopt, datetime, random
 
 compressionList = ['x264', 'x265']
 postFixList = ['480p', '720p', '1080p', 'x264', 'x265', 'HDTV', 'HEVC']
 smallWords = ['the', 'of', 'in', 'into', 'it', 'and', 'a', 'an', 'on', 'at', 'to', 'from', 'by', 'but', 'or', 'for', 'nor', 'up', 'as', 'is', 'vs']
 undoFile = 'C:\\RenameFiles\\undo'
+
+renameDirList = str(os.environ.get('RENAME_DIR_LIST'))
+
+def findSeriesName(short):
+    list = []
+    for dir in os.listdir(renameDirList):
+        if os.path.isdir(renameDirList + '\\' + dir):
+            last = -1
+            score = 0.0
+            cScore = 0.0
+            temp = 0.0
+            large = ''
+            small = ''
+            if len(dir) >= len(short):
+                large = dir
+                small = short
+            else:
+                large = short
+                small = dir
+
+            ll = len(large)
+            sl = len(small)
+            for i in range(sl):
+                temp = ll - (last + 1)
+                last = large.lower().find(small.lower()[i], last + 1)
+                if last == -1:
+                    break
+                cScore = (sl - i) * (ll - last) / temp
+                if last != 0:
+                    if large[last - 1] == ' ':
+                        cScore = cScore * 1.25
+                score = score + cScore
+            score = 2 * score * 100 / (sl * (sl + 1))
+            if score > 100:
+                score = 100.0
+            list.append((score, dir))
+    list.sort(reverse=True)
+    return list
 
 def RunAsAdmin(forced):
     import win32api, win32con, win32event, win32process
@@ -25,7 +65,6 @@ def RunAsAdmin(forced):
 def addNewFileToUndoFile(oldName, newName):
     line = ''
     line = '"' + newName + '";"' + oldName + '"\n'
-    print line
     renameUndoFile = undoFile + str(random.randint(1, 1000))
     while True:
         try:
@@ -34,11 +73,18 @@ def addNewFileToUndoFile(oldName, newName):
                 content = f.read()
                 f.seek(0, 0)
                 f.write(line.rstrip('\r\n') + '\n' + content)
+            break
+        except OSError:
+            sleep(random.uniform(0.5, 1.9))
+            continue
+        except IOError:
+            break
+
+    while True:
+        try:
             os.rename(renameUndoFile, undoFile)
             break
         except OSError:
-            continue
-        except IOError:
             continue
 
 def writeLinesToUndoFile(lines):
@@ -49,11 +95,18 @@ def writeLinesToUndoFile(lines):
             with open(renameUndoFile, 'wb') as f:
                 for line in lines:
                     f.write(line)
+            break
+        except OSError:
+            sleep(random.uniform(0.5, 1.9))
+            continue
+        except IOError:
+            break
+
+    while True:
+        try:
             os.rename(renameUndoFile, undoFile)
             break
         except OSError:
-            continue
-        except IOError:
             continue
 
 def findFileInUndoFile(file):
@@ -69,16 +122,24 @@ def findFileInUndoFile(file):
                     if (replacement[0].strip('"') == file):
                         lineFound = line
                         break
+            break
+        except OSError:
+            sleep(random.uniform(0.5, 1.9))
+            continue
+        except IOError:
+            break
+    print renameUndoFile
+
+    while True:
+        try:
             os.rename(renameUndoFile, undoFile)
             break
         except OSError:
             continue
-        except IOError:
-            continue
+    print undoFile
     return lineFound
 
 def removeLineFromUndoFile(line):
-    print 'removeLineFromUndoFile', line
     lines = []
     renameUndoFile = undoFile + str(random.randint(1, 1000))
     while True:
@@ -86,20 +147,27 @@ def removeLineFromUndoFile(line):
             os.rename(undoFile, renameUndoFile)
             with open(renameUndoFile, "r") as ins:
                 for oldline in ins:
-                    print 'read:', oldline
                     oldline = ' '.join(oldline.split())
                     if (oldline != line):
                         lines.append(oldline)
             with open(renameUndoFile, "wb") as f:
                 for wline in lines:
-                    print 'write:', wline
                     f.write(wline + '\n')
+            break
+        except OSError:
+            sleep(random.uniform(0.5, 1.9))
+            continue
+        except IOError:
+            break
+    print renameUndoFile
+
+    while True:
+        try:
             os.rename(renameUndoFile, undoFile)
             break
         except OSError:
             continue
-        except IOError:
-            continue
+    print undoFile
 
 def undoFileName(inputDirectory, inputFile, extension, forced):
     newFile = inputFile
@@ -149,11 +217,15 @@ def undo(inputFile, inputDirectory, extension, forced):
         sys.exit()
         
 
-def renameFile(inputDirectory, inputFile, extension, forced):
+def renameFile(inputDirectory, inputFile, extension, forced, validation):
     newFile = ""
     testVar = ""
     title, ext = os.path.splitext(os.path.basename(inputFile))
     foundEp = False
+    nameList = []
+    seriesNumIndex = -1
+    choice = 0
+    isMovie = False
     if (ext == extension):
         fileList = title.split("-")
         for file in fileList:
@@ -205,6 +277,9 @@ def renameFile(inputDirectory, inputFile, extension, forced):
                 continue
             if found:
                 if last:
+                    if not isMovie:
+                        seriesNumIndex = len(newFileList) - 1
+                        nameList = findSeriesName(' '.join(newFileList[0:len(newFileList) - 1]))
                     newFileList[-2] = newFileList[-2].title()
                     last = False
                 if term.lower() in (postFix.lower() for postFix in postFixList):
@@ -215,6 +290,7 @@ def renameFile(inputDirectory, inputFile, extension, forced):
                 if (term.lower() in (postFix.lower() for postFix in postFixList)):
                     if not found:
                         found = True
+                        isMovie = True
                 else:
                     term = term.lower()
                 if (first or term.lower() not in smallWords) and term[0].isalpha() and (term.lower() not in (postFix.lower() for postFix in postFixList)):
@@ -234,11 +310,39 @@ def renameFile(inputDirectory, inputFile, extension, forced):
         newFile = newFile.strip('.')
         inputFile = inputDirectory + "\\" + title + ext
         newFile =  inputDirectory + "\\" + newFile + ext
+        testVar = 'y'
         if not forced:
-            testVar = raw_input("Renaming: \n\"" + inputFile
-                                + "\" to \n\"" + newFile
-                                + "\".\n[Y(default)|N]")
-            testVar = testVar.lower()
+            if seriesNumIndex == -1:
+                testVar = raw_input("Renaming: \n\"" + inputFile
+                                    + "\" to \n\"" + newFile
+                                    + "\".\n[Y(default)|N]")
+                testVar = testVar.lower()
+            else:
+                option = ''
+                opC = 1
+                for name in nameList:
+                    if name[0] > 50:
+                        option = option + str(opC) + '. ' + str(name[1]) + ' (' + str("%.2f" % name[0]) + '%)' + '\n'
+                        opC = opC + 1
+                    else:
+                        break
+                testVar = raw_input('Choose from options: (0 for none) \n' + option)
+                testVar = testVar.lower()
+                if testVar == '0':
+                    testVar = 'n'
+                else:
+                    if testVar != '':
+                        choice = int(testVar) - 1
+                    validation = True
+        if validation and nameList[choice][0] > 50:
+            newFileList = re.findall(r"[\w']+", nameList[choice][1]) + newFileList[seriesNumIndex:]
+            newFile = ''
+            for term in newFileList:
+                newFile = newFile + term + '.'
+            newFile = newFile.strip('.')
+            inputFile = inputDirectory + "\\" + title + ext
+            newFile =  inputDirectory + "\\" + newFile + ext
+
         if testVar != 'n' and testVar != 'no' and inputFile != newFile:
             try:
                 os.rename(inputFile, newFile)
@@ -249,7 +353,7 @@ def renameFile(inputDirectory, inputFile, extension, forced):
             else:
                 addNewFileToUndoFile(inputFile, newFile)
 
-def rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced):
+def rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced, validation):
     if isInputFile:
         if not os.path.isdir(inputFile):
             if not os.path.isfile(inputFile):
@@ -260,7 +364,7 @@ def rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced)
                     sys.exit()
             elif os.path.dirname(inputFile) != "":
                     inputDirectory = os.path.dirname(inputFile)
-            renameFile(inputDirectory, inputFile, extension, forced)
+            renameFile(inputDirectory, inputFile, extension, forced, validation)
     else:
         if os.path.isdir(inputDirectory):
             for file in os.listdir(inputDirectory):
@@ -268,7 +372,7 @@ def rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced)
                     if recursive:
                         rename(isInputFile, inputFile, inputDirectory + "\\" + file, extension, recursive, forced)
                 else:
-                    renameFile(inputDirectory, file, extension, forced)
+                    renameFile(inputDirectory, file, extension, forced, validation)
         else:
             print "Invalid Directory: " + inputDirectory + "!"
             sys.exit()
@@ -283,14 +387,15 @@ def main(argv):
     debug = False
     isInputFile = False
     extensionFound = False
+    validation = False
     try:
-        opts, args = getopt.getopt(argv,"hRFUDi:d:e:", ["inputFile=", "inputDirectory=", "extension="])
+        opts, args = getopt.getopt(argv,"hRFUDVi:d:e:", ["inputFile=", "inputDirectory=", "extension="])
     except getopt.GetoptError:
-        print 'rename.series.episode.py [-R|F|U|D] -i <inputFile> -d <inputDirectory> -e <extension>'
+        print 'rename.series.episode.py [-R|F|U|D|V] -i <inputFile> -d <inputDirectory> -e <extension>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'rename.series.episode.py [-R|F|U|D] -i <inputFile> -d <inputDirectory> -e <extension>'
+            print 'rename.series.episode.py [-R|F|U|D|V] -i <inputFile> -d <inputDirectory> -e <extension>'
             sys.exit()
         elif opt == '-R':
             recursive = True
@@ -298,8 +403,10 @@ def main(argv):
             forced = True
         elif opt == '-U':
             doUndo = True
-        elif opt == '-U':
+        elif opt == '-D':
             debug = True
+        elif opt == '-V':
+            validation = True
         elif opt in ("-d", "--inputDirectory"):
             inputDirectory = arg
         elif opt in ("-i", "--inputFile"):
@@ -314,7 +421,7 @@ def main(argv):
     inputDirectory = inputDirectory.strip("\\")
     if not doUndo:
         a = datetime.datetime.now()
-        rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced)
+        rename(isInputFile, inputFile, inputDirectory, extension, recursive, forced, validation)
         b = datetime.datetime.now()
         print 'Completed the processing in:'
         print b - a
